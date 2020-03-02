@@ -148,6 +148,11 @@ namespace Crest
 
         SampleHeightHelper _sampleHeightHelper = new SampleHeightHelper();
 
+        public delegate void EventHandler(OceanRenderer ocean);
+        public event EventHandler ViewerLessThan2mAboveWater;
+        public event EventHandler ViewerMoreThan2mAboveWater;
+        bool _firstViewerHeightUpdate = true;
+
         public static OceanRenderer Instance { get; private set; }
 
         readonly int sp_crestTime = Shader.PropertyToID("_CrestTime");
@@ -177,7 +182,7 @@ namespace Crest
             InitViewpoint();
             InitTimeProvider();
 
-            if(_attachDebugGUI && GetComponent<OceanDebugGUI>() == null)
+            if (_attachDebugGUI && GetComponent<OceanDebugGUI>() == null)
             {
                 gameObject.AddComponent<OceanDebugGUI>();
             }
@@ -307,12 +312,24 @@ namespace Crest
 
         void LateUpdateViewerHeight()
         {
+            var oldViewerHeight = ViewerHeightAboveWater;
+
+            var waterHeight = 0f;
             _sampleHeightHelper.Init(Viewpoint.position, 0f);
-
-            float waterHeight = 0f;
             _sampleHeightHelper.Sample(ref waterHeight);
-
             ViewerHeightAboveWater = Viewpoint.position.y - waterHeight;
+
+            // _firstViewerHeightUpdate is tracked to always broadcast initial state
+            if ((oldViewerHeight >= 2f || _firstViewerHeightUpdate) && ViewerHeightAboveWater < 2f)
+            {
+                ViewerLessThan2mAboveWater?.Invoke(this);
+            }
+            else if ((oldViewerHeight < 2f || _firstViewerHeightUpdate) && ViewerHeightAboveWater >= 2f)
+            {
+                ViewerMoreThan2mAboveWater?.Invoke(this);
+            }
+
+            _firstViewerHeightUpdate = false;
         }
 
         void LateUpdateLods()
@@ -374,6 +391,15 @@ namespace Crest
         /// </summary>
         ICollProvider _collProvider;
         public ICollProvider CollisionProvider { get { return _collProvider != null ? _collProvider : (_collProvider = _simSettingsAnimatedWaves.CreateCollisionProvider()); } }
+
+        private void OnEnable()
+        {
+            _firstViewerHeightUpdate = true;
+        }
+        private void OnDisable()
+        {
+            _firstViewerHeightUpdate = true;
+        }
 
 #if UNITY_EDITOR
         private void OnValidate()

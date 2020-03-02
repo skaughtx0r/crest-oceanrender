@@ -53,6 +53,12 @@ void SnapAndTransitionVertLayout(float i_meshScaleAlpha, inout float3 io_worldPo
 	if (abs(offset.y) < minRadius) io_worldPos.z += offset.y * o_lodAlpha * GRID_SIZE_4;
 }
 
+bool IsUnderwater(const float facing, const float forceUnderwater)
+{
+	const bool backface = facing < 0.0;
+	return backface || forceUnderwater > 0.0;
+}
+
 // Used to get the world position of the ocean surface from the world position
 void ComputePositionDisplacement(inout float3 io_positionWS, in const float i_lodAlpha)
 {
@@ -61,7 +67,7 @@ void ComputePositionDisplacement(inout float3 io_positionWS, in const float i_lo
 	const float2 worldXZ = io_positionWS.xz;
 	float wt_smallerLod = (1.0 - i_lodAlpha) * _LD_Params[_LD_SliceIndex].z;
 	float wt_biggerLod = (1.0 - wt_smallerLod) * _LD_Params[_LD_SliceIndex + 1].z;
-	
+
 	// Sample displacement textures and add results to current world position
 	half dummy = 0.0;
 	if (wt_smallerLod > 0.001)

@@ -52,13 +52,13 @@ namespace Crest
                 }
             }
 
-            // UnderwaterEffect
-            var underwaters = FindObjectsOfType<UnderwaterEffect>();
+            // UnderwaterPostProcess
+            var underwaters = FindObjectsOfType<UnderwaterPostProcess>();
             foreach (var underwater in underwaters)
             {
-                if (underwater.transform.parent.GetComponent<Camera>() == null)
+                if (underwater.GetComponent<Camera>() == null)
                 {
-                    Debug.LogError("Validation: UnderwaterEffect script expected to be parented to a GameObject with a Camera. Click this message to see the script in question.", underwater);
+                    Debug.LogError("Validation: UnderwaterPostProcess script must be attached to a GameObject with a Camera component. Click this message to see the GameObject in question.", underwater.gameObject);
                 }
             }
 

@@ -263,6 +263,7 @@ Shader "Crest/Ocean"
 				UNITY_FOG_COORDS(3)
 			};
 
+			#include "OceanConstants.hlsl"
 			#include "OceanHelpers.hlsl"
 
 			float _CrestTime;
@@ -398,6 +399,11 @@ Shader "Crest/Ocean"
 			// i'm not sure why cracks are not visible in this case.
 			uniform float _ForceUnderwater;
 
+			half3 AmbientLight()
+			{
+				return half3(unity_SHAr.w, unity_SHAg.w, unity_SHAb.w);
+			}
+
 			float3 WorldSpaceLightDir(float3 worldPos)
 			{
 				float3 lightDir = _WorldSpaceLightPos0.xyz;
@@ -409,18 +415,14 @@ Shader "Crest/Ocean"
 				return lightDir;
 			}
 
-			bool IsUnderwater(const float facing)
-			{
-#if !_UNDERWATER_ON
-				return false;
-#endif
-				const bool backface = facing < 0.0;
-				return backface || _ForceUnderwater > 0.0;
-			}
-
 			half4 Frag(const Varyings input, const float facing : VFACE) : SV_Target
 			{
-				const bool underwater = IsUnderwater(facing);
+				#if _UNDERWATER_ON
+				const bool underwater = IsUnderwater(facing, _ForceUnderwater);
+				#else
+				const bool underwater = false;
+				#endif
+
 				const float lodAlpha = input.lodAlpha_worldXZUndisplaced_oceanDepth.x;
 
 				half3 view = normalize(_WorldSpaceCameraPos - input.worldPos);
@@ -439,6 +441,7 @@ Shader "Crest/Ocean"
 					- input.flow_shadow.zw
 				#endif
 					;
+				half3 ambientLight = AmbientLight();
 
 				// Normal - geom + normal mapping. Subsurface scattering.
 				const float3 uv_slice_smallerLod = WorldToUV(input.lodAlpha_worldXZUndisplaced_oceanDepth.yz);
@@ -483,14 +486,14 @@ Shader "Crest/Ocean"
 				#if _FOAM_ON
 				half4 whiteFoamCol;
 				#if !_FLOW_ON
-				ComputeFoam(input.foam_screenPosXYW.x, input.lodAlpha_worldXZUndisplaced_oceanDepth.yz, input.worldPos.xz, n_pixel, pixelZ, sceneZ, view, lightDir, shadow.y, lodAlpha, bubbleCol, whiteFoamCol);
+				ComputeFoam(input.foam_screenPosXYW.x, input.lodAlpha_worldXZUndisplaced_oceanDepth.yz, input.worldPos.xz, n_pixel, pixelZ, sceneZ, view, lightDir, ambientLight, shadow.y, lodAlpha, bubbleCol, whiteFoamCol);
 				#else
-				ComputeFoamWithFlow(input.flow_shadow.xy, input.foam_screenPosXYW.x, input.lodAlpha_worldXZUndisplaced_oceanDepth.yz, input.worldPos.xz, n_pixel, pixelZ, sceneZ, view, lightDir, shadow.y, lodAlpha, bubbleCol, whiteFoamCol);
+				ComputeFoamWithFlow(input.flow_shadow.xy, input.foam_screenPosXYW.x, input.lodAlpha_worldXZUndisplaced_oceanDepth.yz, input.worldPos.xz, n_pixel, pixelZ, sceneZ, view, lightDir, ambientLight, shadow.y, lodAlpha, bubbleCol, whiteFoamCol);
 				#endif // _FLOW_ON
 				#endif // _FOAM_ON
 
 				// Compute color of ocean - in-scattered light + refracted scene
-				half3 scatterCol = ScatterColour(input.lodAlpha_worldXZUndisplaced_oceanDepth.w, _WorldSpaceCameraPos, lightDir, view, shadow.x, underwater, true, sss);
+				half3 scatterCol = ScatterColour(ambientLight, input.lodAlpha_worldXZUndisplaced_oceanDepth.w, _WorldSpaceCameraPos, lightDir, view, shadow.x, underwater, true, sss);
 				half3 col = OceanEmission(view, n_pixel, lightDir, input.grabPos, pixelZ, uvDepth, sceneZ, sceneZ01, bubbleCol, _Normals, _CameraDepthTexture, underwater, scatterCol);
 
 				// Light that reflects off water surface
@@ -526,12 +529,6 @@ Shader "Crest/Ocean"
 					// Above water - do atmospheric fog. If you are using a third party sky package such as Azure, replace this with their stuff!
 					UNITY_APPLY_FOG(input.fogCoord, col);
 				}
-				else
-				{
-					// underwater - do depth fog
-					col = lerp(col, scatterCol, saturate(1. - exp(-_DepthFogDensity.xyz * pixelZ)));
-				}
-
 				#if _DEBUGVISUALISESHAPESAMPLE_ON
 				col = lerp(col.rgb, input.debugtint, 0.5);
 				#endif
