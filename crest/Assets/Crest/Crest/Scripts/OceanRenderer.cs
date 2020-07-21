@@ -1029,6 +1029,18 @@ namespace Crest
         {
             var isValid = true;
 
+#if UNITY_2019
+            if (EditorSettings.enterPlayModeOptionsEnabled && 
+                EditorSettings.enterPlayModeOptions.HasFlag(EnterPlayModeOptions.DisableSceneReload))
+            {
+                showMessage
+                (
+                    "Crest will not work correctly with <i>Disable Scene Reload</i> enabled.",
+                    ValidatedHelper.MessageType.Error, ocean
+                );
+            }
+#endif
+
             if (_material == null)
             {
                 showMessage
@@ -1228,4 +1240,4 @@ namespace Crest
         }
     }
 #endif
-}
+        }
