@@ -15,7 +15,7 @@ float ComputeLodAlpha(float3 i_worldPos, float i_meshScaleAlpha)
 	float lodAlpha = taxicab_norm / scale - 1.0;
 
 	// LOD alpha is remapped to ensure patches weld together properly. Patches can vary significantly in shape (with
-	// strips added and removed), and this variance depends on the base vertex density of the mesh, as this defines the 
+	// strips added and removed), and this variance depends on the base vertex density of the mesh, as this defines the
 	// strip width.
 	lodAlpha = max((lodAlpha - _CrestLodAlphaBlackPointFade) / _CrestLodAlphaBlackPointWhitePointFade, 0.);
 
@@ -49,6 +49,17 @@ void SnapAndTransitionVertLayout(float i_meshScaleAlpha, const float gridSize, i
 	const float minRadius = 0.26; //0.26 is 0.25 plus a small "epsilon" - should solve numerical issues
 	if (abs(offset.x) < minRadius) io_worldPos.x += offset.x * o_lodAlpha * GRID_SIZE_4;
 	if (abs(offset.y) < minRadius) io_worldPos.z += offset.y * o_lodAlpha * GRID_SIZE_4;
+}
+
+bool IsUnderwater(const float facing, const float forceUnderwater)
+{
+	const bool backface = facing < 0.0;
+	return backface || forceUnderwater > 0.0;
+}
+
+half3 AmbientLight()
+{
+	return half3(unity_SHAr.w, unity_SHAg.w, unity_SHAb.w);
 }
 
 // Clips using ocean surface clip data

@@ -318,10 +318,6 @@ Shader "Crest/Ocean"
 				UNITY_INITIALIZE_OUTPUT(Varyings, o);
 				UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
 
-				// Scale up by small "epsilon" to solve numerical issues.
-				// :OceanGridPrecisionErrors
-				v.vertex.xyz *= 1.00001;
-
 				const CascadeParams cascadeData0 = _CrestCascadeData[_LD_SliceIndex];
 				const CascadeParams cascadeData1 = _CrestCascadeData[_LD_SliceIndex + 1];
 				const PerCascadeInstanceData instanceData = _CrestPerCascadeInstanceData[_LD_SliceIndex];
@@ -468,15 +464,6 @@ Shader "Crest/Ocean"
 				return lightDir;
 			}
 
-			bool IsUnderwater(const float facing)
-			{
-#if !_UNDERWATER_ON
-				return false;
-#endif
-				const bool backface = facing < 0.0;
-				return backface || _ForceUnderwater > 0.0;
-			}
-
 			half4 Frag(const Varyings input, const float facing : VFACE) : SV_Target
 			{
 				// We need this when sampling a screenspace texture.
@@ -486,7 +473,12 @@ Shader "Crest/Ocean"
 				const CascadeParams cascadeData1 = _CrestCascadeData[_LD_SliceIndex + 1];
 				const PerCascadeInstanceData instanceData = _CrestPerCascadeInstanceData[_LD_SliceIndex];
 
-				const bool underwater = IsUnderwater(facing);
+				#if _UNDERWATER_ON
+				const bool underwater = IsUnderwater(facing, _ForceUnderwater);
+				#else
+				const bool underwater = false;
+				#endif
+
 				const float lodAlpha = input.lodAlpha_worldXZUndisplaced_oceanDepth.x;
 				const float wt_smallerLod = (1.0 - lodAlpha) * cascadeData0._weight;
 				const float wt_biggerLod = (1.0 - wt_smallerLod) * cascadeData1._weight;
@@ -572,7 +564,7 @@ Shader "Crest/Ocean"
 				// Compute color of ocean - in-scattered light + refracted scene
 				const float baseCascadeScale = _CrestCascadeData[0]._scale;
 				const float meshScaleLerp = instanceData._meshScaleLerp;
-				half3 scatterCol = ScatterColour(input.lodAlpha_worldXZUndisplaced_oceanDepth.w, _WorldSpaceCameraPos, lightDir, view, shadow.x, underwater, true, sss, meshScaleLerp, baseCascadeScale, cascadeData0);
+				half3 scatterCol = ScatterColour(AmbientLight(), input.lodAlpha_worldXZUndisplaced_oceanDepth.w, _WorldSpaceCameraPos, lightDir, view, shadow.x, underwater, true, sss, meshScaleLerp, baseCascadeScale, cascadeData0);
 				half3 col = OceanEmission(view, n_pixel, lightDir, input.grabPos, pixelZ, uvDepth, sceneZ, sceneZ01, bubbleCol, _Normals, underwater, scatterCol, cascadeData0, cascadeData1);
 
 				// Light that reflects off water surface
@@ -608,12 +600,6 @@ Shader "Crest/Ocean"
 					// Above water - do atmospheric fog. If you are using a third party sky package such as Azure, replace this with their stuff!
 					UNITY_APPLY_FOG(input.fogCoord, col);
 				}
-				else
-				{
-					// underwater - do depth fog
-					col = lerp(col, scatterCol, saturate(1. - exp(-_DepthFogDensity.xyz * pixelZ)));
-				}
-
 				#if _DEBUGVISUALISESHAPESAMPLE_ON
 				col = lerp(col.rgb, input.debugtint, 0.5);
 				#endif

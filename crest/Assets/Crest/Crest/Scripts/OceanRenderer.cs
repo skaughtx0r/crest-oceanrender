@@ -137,6 +137,9 @@ namespace Crest
         [SerializeField, Tooltip("Number of ocean tile scales/LODs to generate. Press 'Rebuild Ocean' button below to apply."), Range(2, LodDataMgr.MAX_LOD_COUNT)]
         int _lodCount = 7;
 
+        [Tooltip("Proportion of visibility below which ocean will be culled underwater. The larger the number, the closer to the camera the ocean tiles will be culled."), SerializeField, Range(0.000001f, 0.01f)]
+        public float _underwaterCullLimit = 0.001f;
+
 
         [Header("Simulation Params")]
 
@@ -255,8 +258,14 @@ namespace Crest
         List<LodDataMgr> _lodDatas = new List<LodDataMgr>();
 
         List<OceanChunkRenderer> _oceanChunkRenderers = new List<OceanChunkRenderer>();
+        public List<OceanChunkRenderer> Tiles => _oceanChunkRenderers;
 
         SampleHeightHelper _sampleHeightHelper = new SampleHeightHelper();
+
+        public delegate void EventHandler(OceanRenderer ocean);
+        public event EventHandler ViewerLessThan2mAboveWater;
+        public event EventHandler ViewerMoreThan2mAboveWater;
+        bool _firstViewerHeightUpdate = true;
 
         public static OceanRenderer Instance { get; private set; }
 
@@ -328,6 +337,8 @@ namespace Crest
         // Drive state from OnEnable and OnDisable? OnEnable on RegisterLodDataInput seems to get called on script reload
         void OnEnable()
         {
+            _firstViewerHeightUpdate = true;
+
             // We don't run in "prefab scenes", i.e. when editing a prefab. Bail out if prefab scene is detected.
 #if UNITY_EDITOR
             if (PrefabStageUtility.GetCurrentPrefabStage() != null)
@@ -405,6 +416,8 @@ namespace Crest
 
         private void OnDisable()
         {
+            _firstViewerHeightUpdate = true;
+
 #if UNITY_EDITOR
             // We don't run in "prefab scenes", i.e. when editing a prefab. Bail out if prefab scene is detected.
             if (PrefabStageUtility.GetCurrentPrefabStage() != null)
@@ -828,11 +841,25 @@ namespace Crest
 
         void LateUpdateViewerHeight()
         {
+            var oldViewerHeight = ViewerHeightAboveWater;
+
             _sampleHeightHelper.Init(Viewpoint.position, 0f, true);
 
             _sampleHeightHelper.Sample(out var waterHeight);
 
             ViewerHeightAboveWater = Viewpoint.position.y - waterHeight;
+
+            // _firstViewerHeightUpdate is tracked to always broadcast initial state
+            if ((oldViewerHeight >= 2f || _firstViewerHeightUpdate) && ViewerHeightAboveWater < 2f)
+            {
+                ViewerLessThan2mAboveWater?.Invoke(this);
+            }
+            else if ((oldViewerHeight < 2f || _firstViewerHeightUpdate) && ViewerHeightAboveWater >= 2f)
+            {
+                ViewerMoreThan2mAboveWater?.Invoke(this);
+            }
+
+            _firstViewerHeightUpdate = false;
         }
 
         void LateUpdateLods()
@@ -852,12 +879,12 @@ namespace Crest
 
         void LateUpdateTiles()
         {
-            // If there are local bodies of water, this will do overlap tests between the ocean tiles
-            // and the water bodies and turn off any that don't overlap.
-            if (WaterBody.WaterBodies.Count == 0 && _canSkipCulling)
-            {
-                return;
-            }
+            var definitelyUnderwater = ViewerHeightAboveWater < -5f;
+
+            var density = _material.GetVector("_DepthFogDensity");
+            var minimumFogDensity = Mathf.Min(Mathf.Min(density.x, density.y), density.z);
+            var volumeExtinctionLength = -Mathf.Log(_underwaterCullLimit) / minimumFogDensity;
+            var canSkipCulling = WaterBody.WaterBodies.Count == 0 && _canSkipCulling;
 
             foreach (OceanChunkRenderer tile in _oceanChunkRenderers)
             {
@@ -866,24 +893,39 @@ namespace Crest
                     continue;
                 }
 
-                var chunkBounds = tile.Rend.bounds;
+                var isCulled = false;
 
-                var overlappingOne = false;
-                foreach (var body in WaterBody.WaterBodies)
+                // If there are local bodies of water, this will do overlap tests between the ocean tiles
+                // and the water bodies and turn off any that don't overlap.
+                if (!canSkipCulling)
                 {
-                    var bounds = body.AABB;
+                    var chunkBounds = tile.Rend.bounds;
 
-                    bool overlapping =
-                        bounds.max.x > chunkBounds.min.x && bounds.min.x < chunkBounds.max.x &&
-                        bounds.max.z > chunkBounds.min.z && bounds.min.z < chunkBounds.max.z;
-                    if (overlapping)
+                    var overlappingOne = false;
+                    foreach (var body in WaterBody.WaterBodies)
                     {
-                        overlappingOne = true;
-                        break;
+                        var bounds = body.AABB;
+
+                        bool overlapping =
+                            bounds.max.x > chunkBounds.min.x && bounds.min.x < chunkBounds.max.x &&
+                            bounds.max.z > chunkBounds.min.z && bounds.min.z < chunkBounds.max.z;
+                        if (overlapping)
+                        {
+                            overlappingOne = true;
+                            break;
+                        }
                     }
+
+                    isCulled = !overlappingOne && WaterBody.WaterBodies.Count > 0;
                 }
 
-                tile.Rend.enabled = overlappingOne || WaterBody.WaterBodies.Count == 0;
+                // Cull tiles the viewer cannot see through the underwater fog.
+                if (!isCulled)
+                {
+                    isCulled = definitelyUnderwater && (Viewpoint.position - tile.Rend.bounds.ClosestPoint(Viewpoint.position)).magnitude >= volumeExtinctionLength;
+                }
+
+                tile.Rend.enabled = !isCulled;
             }
 
             // Can skip culling next time around if water body count stays at 0
@@ -1050,11 +1092,12 @@ namespace Crest
             }
 
             // UnderwaterEffect
-            var underwaters = FindObjectsOfType<UnderwaterEffect>();
-            foreach (var underwater in underwaters)
-            {
-                underwater.Validate(ocean, ValidatedHelper.DebugLog);
-            }
+            // TODO:UnderwaterPostProcessValidation
+            // var underwaters = FindObjectsOfType<UnderwaterPostProcess>();
+            // foreach (var underwater in underwaters)
+            // {
+            //     underwater.Validate(ocean, ValidatedHelper.DebugLog);
+            // }
 
             // OceanDepthCache
             var depthCaches = FindObjectsOfType<OceanDepthCache>();

@@ -26,6 +26,9 @@ public class CamController : MonoBehaviour
     [System.Serializable]
     class DebugFields
     {
+        [Tooltip("Disables controller preventing the camera from rolling (rotating on the z axis).")]
+        public bool disableCameraRollPrevention = false;
+
         [Tooltip("Disables the XR occlusion mesh for debugging purposes. Only works with legacy XR.")]
         public bool disableOcclusionMesh = false;
 
@@ -163,6 +166,7 @@ public class CamController : MonoBehaviour
 
     void UpdateKillRoll()
     {
+        if (_debug.disableCameraRollPrevention) return;
         Vector3 ea = _targetTransform.eulerAngles;
         ea.z = 0f;
         transform.eulerAngles = ea;

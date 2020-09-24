@@ -27,6 +27,13 @@ namespace Crest
         public Renderer Rend { get; private set; }
         PropertyWrapperMPB _mpb;
 
+
+        // We need to ensure that all ocean data has been bound for the mask to
+        // render properly - this is something that needs to happen irrespective
+        // of occlusion culling because we need the mask to render as a
+        // contiguous surface.
+        internal bool _oceanDataHasBeenBound = true;
+
         // Cache these off to support regenerating ocean surface
         int _lodIndex = -1;
         int _totalLodCount = -1;
@@ -94,9 +101,11 @@ namespace Crest
             _currentCamera = camera;
         }
 
-        // Called when visible to a camera
-        void OnWillRenderObject()
+        // Used by the ocean mask system if we need to render the ocean mask in situations
+        // where the ocean itself doesn't need to be rendered or has otherwise been disabled
+        internal void BindOceanData(Camera camera)
         {
+            _oceanDataHasBeenBound = true;
             if (OceanRenderer.Instance == null || Rend == null)
             {
                 return;
@@ -137,6 +146,27 @@ namespace Crest
             }
 
             Rend.SetPropertyBlock(_mpb.materialPropertyBlock);
+        }
+
+
+        // Called when visible to a camera
+        void OnWillRenderObject()
+        {
+            // check if built-in pipeline being used
+            if (Camera.current != null)
+            {
+                _currentCamera = Camera.current;
+            }
+
+            // Depth texture is used by ocean shader for transparency/depth fog, and for fading out foam at shoreline.
+            _currentCamera.depthTextureMode |= DepthTextureMode.Depth;
+
+            BindOceanData(_currentCamera);
+
+            if (_drawRenderBounds)
+            {
+                Rend.bounds.DebugDraw();
+            }
         }
 
         // this is called every frame because the bounds are given in world space and depend on the transform scale, which

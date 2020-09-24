@@ -28,7 +28,7 @@ namespace Crest
             Info,
         }
 
-        // This is a shared resource. It will be cleared before use. It is only used by the HelpBox delegate since we 
+        // This is a shared resource. It will be cleared before use. It is only used by the HelpBox delegate since we
         // want to group them by severity (MessageType). Make sure length matches MessageType length.
         public static readonly List<string>[] messages = new[]
         {
@@ -66,9 +66,20 @@ namespace Crest
                     "No renderer has been attached to ocean input. A renderer is required.",
                     MessageType.Error, gameObject
                 );
-
                 return false;
             }
+
+            // TODO:UnderwaterPostProcessValidation
+            // How to get this to work?
+            // var underwaters = FindObjectsOfType<UnderwaterPostProcess>();
+            // foreach (var underwater in underwaters)
+            // {
+            //     if (underwater.GetComponent<Camera>() == null)
+            //     {
+            //         showMessage("Validation: UnderwaterPostProcess script must be attached to a GameObject with a Camera component. Click this message to see the GameObject in question.", MessageType.Error, underwater.gameObject);
+            //         return false;
+            //     }
+            // }
 
             if (!renderer.sharedMaterial || renderer.sharedMaterial.shader && !renderer.sharedMaterial.shader.name.StartsWith(shaderPrefix))
             {
