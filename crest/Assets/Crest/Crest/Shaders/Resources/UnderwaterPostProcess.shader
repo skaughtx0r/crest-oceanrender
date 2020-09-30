@@ -38,12 +38,13 @@ Shader "Crest/Underwater/Post Process"
 			#pragma multi_compile_local __ _FULL_SCREEN_EFFECT
 			#pragma multi_compile_local __ _DEBUG_VIEW_OCEAN_MASK
 			#else
-			#pragma shader_feature _SUBSURFACESCATTERING_ON
-			#pragma shader_feature _SUBSURFACESHALLOWCOLOUR_ON
-			#pragma shader_feature _TRANSPARENCY_ON
-			#pragma shader_feature _CAUSTICS_ON
-			#pragma shader_feature _SHADOWS_ON
-			#pragma shader_feature _COMPILESHADERWITHDEBUGINFO_ON
+			#pragma multi_compile _SUBSURFACESCATTERING_ON
+			#pragma multi_compile _SUBSURFACESHALLOWCOLOUR_ON
+			#pragma multi_compile _TRANSPARENCY_ON
+			#pragma multi_compile _CAUSTICS_ON
+			#pragma multi_compile _SHADOWS_ON
+			#pragma multi_compile _COMPILESHADERWITHDEBUGINFO_ON
+
 			#pragma shader_feature _MENISCUS_ON
 
 			#pragma multi_compile __ _FULL_SCREEN_EFFECT
