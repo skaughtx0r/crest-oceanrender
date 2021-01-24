@@ -174,6 +174,10 @@ Shader "Crest/Ocean"
 		// Clips purely based on water depth
 		[Toggle] _ClipUnderTerrain("Clip Below Terrain (Requires depth cache)", Float) = 0
 
+		[Header(Rendering)]
+		// What projection modes will this material support? Choosing perspective or orthographic is an optimisation.
+		[KeywordEnum(Both, Perspective, Orthographic)] _Projection("Projection Support", Float) = 0.0
+
 		[Header(Debug Options)]
 		// Build shader with debug info which allows stepping through the code in a GPU debugger. I typically use RenderDoc or
 		// PIX for Windows (requires DX12 API to be selected).
@@ -236,6 +240,8 @@ Shader "Crest/Ocean"
 			#pragma shader_feature_local _CLIPSURFACE_ON
 			#pragma shader_feature_local _CLIPUNDERTERRAIN_ON
 
+			#pragma shader_feature_local _ _PROJECTION_PERSPECTIVE _PROJECTION_ORTHOGRAPHIC
+
 			#pragma shader_feature_local _DEBUGDISABLESHAPETEXTURES_ON
 			#pragma shader_feature_local _DEBUGVISUALISESHAPESAMPLE_ON
 			#pragma shader_feature_local _DEBUGVISUALISEFLOW_ON
@@ -248,6 +254,19 @@ Shader "Crest/Ocean"
 
 			#include "UnityCG.cginc"
 			#include "Lighting.cginc"
+
+			#include "OceanGlobals.hlsl"
+			#include "OceanInputsDriven.hlsl"
+			#include "OceanShaderData.hlsl"
+			#include "OceanHelpersNew.hlsl"
+			#include "OceanVertHelpers.hlsl"
+			#include "OceanShaderHelpers.hlsl"
+			#include "OceanLightingHelpers.hlsl"
+
+			#include "OceanEmission.hlsl"
+			#include "OceanNormalMapping.hlsl"
+			#include "OceanReflection.hlsl"
+			#include "OceanFoam.hlsl"
 
 			struct Attributes
 			{
@@ -273,15 +292,6 @@ Shader "Crest/Ocean"
 
 				UNITY_VERTEX_OUTPUT_STEREO
 			};
-
-			UNITY_DECLARE_SCREENSPACE_TEXTURE(_CameraDepthTexture);
-
-			#include "OceanConstants.hlsl"
-			#include "OceanGlobals.hlsl"
-			#include "OceanInputsDriven.hlsl"
-			#include "OceanHelpersNew.hlsl"
-			#include "OceanVertHelpers.hlsl"
-			#include "OceanLightingHelpers.hlsl"
 
 			// Argument name is v because some macros like COMPUTE_EYEDEPTH require it.
 			Varyings Vert(Attributes v)
@@ -332,8 +342,7 @@ Shader "Crest/Ocean"
 					const float3 uv_slice_smallerLod = WorldToUV(positionWS_XZ_before, cascadeData0, _LD_SliceIndex);
 
 					#if !_DEBUGDISABLESHAPETEXTURES_ON
-					half sss = 0.;
-					SampleDisplacements(_LD_TexArray_AnimatedWaves, uv_slice_smallerLod, wt_smallerLod, o.worldPos, sss);
+					SampleDisplacements(_LD_TexArray_AnimatedWaves, uv_slice_smallerLod, wt_smallerLod, o.worldPos);
 					#endif
 
 					#if _FOAM_ON
@@ -349,8 +358,7 @@ Shader "Crest/Ocean"
 					const float3 uv_slice_biggerLod = WorldToUV(positionWS_XZ_before, cascadeData1, _LD_SliceIndex + 1);
 
 					#if !_DEBUGDISABLESHAPETEXTURES_ON
-					half sss = 0.;
-					SampleDisplacements(_LD_TexArray_AnimatedWaves, uv_slice_biggerLod, wt_biggerLod, o.worldPos, sss);
+					SampleDisplacements(_LD_TexArray_AnimatedWaves, uv_slice_biggerLod, wt_biggerLod, o.worldPos);
 					#endif
 
 					#if _FOAM_ON
@@ -419,20 +427,6 @@ Shader "Crest/Ocean"
 				return o;
 			}
 
-			// frag shader uniforms
-
-			#include "OceanFoam.hlsl"
-			#include "OceanEmission.hlsl"
-			#include "OceanReflection.hlsl"
-			uniform sampler2D _Normals;
-			#include "OceanNormalMapping.hlsl"
-
-			// Hack - due to SV_IsFrontFace occasionally coming through as true for backfaces,
-			// add a param here that forces ocean to be in undrwater state. I think the root
-			// cause here might be imprecision or numerical issues at ocean tile boundaries, although
-			// i'm not sure why cracks are not visible in this case.
-			uniform float _ForceUnderwater;
-
 			half4 Frag(const Varyings input, const float facing : VFACE) : SV_Target
 			{
 				// We need this when sampling a screenspace texture.
@@ -477,11 +471,12 @@ Shader "Crest/Ocean"
 				half3 view = normalize(_WorldSpaceCameraPos - input.worldPos);
 
 				// water surface depth, and underlying scene opaque surface depth
-				float pixelZ = LinearEyeDepth(input.positionCS.z);
+				float pixelZ = CrestLinearEyeDepth(input.positionCS.z);
 				half3 screenPos = input.foam_screenPosXYW.yzw;
 				half2 uvDepth = screenPos.xy / screenPos.z;
-				float sceneZ01 = UNITY_SAMPLE_SCREENSPACE_TEXTURE(_CameraDepthTexture, uvDepth).x;
-				float sceneZ = LinearEyeDepth(sceneZ01);
+				// Raw depth is logarithmic for perspective, and linear (0-1) for orthographic.
+				float rawDepth = SAMPLE_DEPTH_TEXTURE(_CameraDepthTexture, uvDepth).x;
+				float sceneZ = CrestLinearEyeDepth(rawDepth);
 
 				float3 lightDir = WorldSpaceLightDir(input.worldPos);
 				// Soft shadow, hard shadow
@@ -535,7 +530,7 @@ Shader "Crest/Ocean"
 				const float baseCascadeScale = _CrestCascadeData[0]._scale;
 				const float meshScaleLerp = instanceData._meshScaleLerp;
 				half3 scatterCol = ScatterColour(AmbientLight(), input.lodAlpha_worldXZUndisplaced_oceanDepth.w, _WorldSpaceCameraPos, lightDir, view, shadow.x, underwater, true, sss, meshScaleLerp, baseCascadeScale, cascadeData0);
-				half3 col = OceanEmission(view, n_pixel, lightDir, input.grabPos, pixelZ, uvDepth, sceneZ, sceneZ01, bubbleCol, _Normals, underwater, scatterCol, cascadeData0, cascadeData1);
+				half3 col = OceanEmission(view, n_pixel, lightDir, input.grabPos, pixelZ, uvDepth, sceneZ, bubbleCol, _Normals, underwater, scatterCol, cascadeData0, cascadeData1);
 
 				// Light that reflects off water surface
 
