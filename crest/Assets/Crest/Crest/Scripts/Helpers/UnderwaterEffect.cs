@@ -20,6 +20,7 @@ namespace Crest
     /// Handles effects that need to track the water surface. Feeds in wave data and disables rendering when
     /// not close to water.
     /// </summary>
+    [AddComponentMenu(Internal.Constants.MENU_PREFIX_SCRIPTS + "Underwater Effect")]
     public partial class UnderwaterEffect : MonoBehaviour
     {
         [Header("Copy params from Ocean material")]
@@ -250,6 +251,7 @@ namespace Crest
                 showMessage
                 (
                     "Underwater effects expect to be parented to a camera.",
+                    "Parent this GameObject underneath a GameObject that has a <i>Camera</i> component attached.",
                     ValidatedHelper.MessageType.Error, this
                 );
 
@@ -261,11 +263,7 @@ namespace Crest
             var renderer = GetComponent<Renderer>();
             if (renderer.sharedMaterial && renderer.sharedMaterial.shader && !renderer.sharedMaterial.shader.name.StartsWith(shaderPrefix))
             {
-                showMessage
-                (
-                    $"Shader assigned to underwater effect expected to be of type <i>{shaderPrefix}</i>.",
-                    ValidatedHelper.MessageType.Error, this
-                );
+                ValidatedHelper.ValidateMaterial(renderer.sharedMaterial, shaderPrefix, gameObject, showMessage);
 
                 isValid = false;
             }
@@ -285,6 +283,7 @@ namespace Crest
                             $"Keyword {keyword} was enabled on the underwater material <i>{renderer.sharedMaterial.name}</i>"
                             + $"but not on the ocean material <i>{ocean.OceanMaterial.name}</i>, underwater appearance "
                             + "may not match ocean surface in standalone builds.",
+                            "Compare the toggles on the ocean material and the underwater material and ensure they match.",
                             ValidatedHelper.MessageType.Warning, this
                         );
                     }
@@ -304,6 +303,7 @@ namespace Crest
                             $"Keyword {keyword} is enabled on the ocean material <i>{ocean.OceanMaterial.name}</i> but "
                             + $"not on the underwater material <i>{renderer.sharedMaterial.name}</i>, underwater "
                             + "appearance may not match ocean surface in standalone builds.",
+                            "Compare the toggles on the ocean material and the underwater material and ensure they match.",
                             ValidatedHelper.MessageType.Warning, this
                         );
                     }
