@@ -446,17 +446,6 @@ Shader "Crest/Ocean"
 				return o;
 			}
 
-			float3 WorldSpaceLightDir(float3 worldPos)
-			{
-				float3 lightDir = _WorldSpaceLightPos0.xyz;
-				if (_WorldSpaceLightPos0.w > 0.)
-				{
-					// non-directional light - this is a position, not a direction
-					lightDir = normalize(lightDir - worldPos.xyz);
-				}
-				return lightDir;
-			}
-
 			bool IsUnderwater(const bool i_isFrontFace)
 			{
 #if !_UNDERWATER_ON
