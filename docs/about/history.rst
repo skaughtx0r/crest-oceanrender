@@ -22,8 +22,25 @@ Changed
 ^^^^^^^
 .. bullet_list::
 
+   -  Sponsorship page launched! Asset Store sales only cover fixes and basic support. To support new feature development and give us financial stability please consider sponsoring us, no amount is too small! https://github.com/sponsors/wave-harmonic
    -  Add Overall Normals Scale parameter to material that scales final surface normal (includes both normal map and wave simulation normal).
+   -  Headless support - add support for running without display, with new toggle on OceanRenderer to emulate it in Editor.
+   -  No GPU support - add support for running without GPU, with new toggle on OceanRenderer to emulate it in Editor.
 
+   .. only:: hdrp
+
+      -  *Copy Ocean Material Params Each Frame* is now enabled by default for *Underwater Post Process*. `[HDRP]`
+
+Fixed
+^^^^^
+.. bullet_list::
+
+   -  Fix build errors for platforms that do not support XR/VR.
+   -  Fix for bugs where a large boat may stop moving when camera is close.
+
+   .. only:: hdrp
+
+      -  Fix shadow data for XR/VR `SPI` from working and breaking builds. `[HDRP]`
 
 4.10
 ----
