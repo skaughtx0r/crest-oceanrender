@@ -7,6 +7,7 @@ using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
 using Unity.Collections.LowLevel.Unsafe;
 using Crest.Spline;
+using System.Collections.Generic;
 
 #if UNITY_EDITOR
 using UnityEditor;
@@ -197,6 +198,14 @@ namespace Crest
         readonly float _twoPi = 2f * Mathf.PI;
         readonly float _recipTwoPi = 1f / (2f * Mathf.PI);
 
+        internal static readonly CrestSortedList<int, ShapeGerstner> Instances = new CrestSortedList<int, ShapeGerstner>(new SiblingIndexComparer());
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        static void InitStatics()
+        {
+            Instances.Clear();
+        }
+
         void InitData()
         {
             {
@@ -262,6 +271,7 @@ namespace Crest
 
             _matGenerateWaves.SetFloat(sp_RespectShallowWaterAttenuation, _respectShallowWaterAttenuation);
             _matGenerateWaves.SetFloat(sp_FeatherWaveStart, _featherWaveStart);
+            _matGenerateWaves.SetVector(sp_AxisX, PrimaryWaveDirection);
             // Seems like shader errors cause this to unbind if I don't set it every frame. Could be an editor only issue.
             _matGenerateWaves.SetTexture(sp_WaveBuffer, _waveBuffers);
 
@@ -273,7 +283,6 @@ namespace Crest
                 UpdateGenerateWaves(buf);
             }
 
-            buf.SetGlobalVector(sp_AxisX, PrimaryWaveDirection);
             // Seems to come unbound when editing shaders at runtime, so rebinding here.
             _matGenerateWaves.SetTexture(sp_WaveBuffer, _waveBuffers);
         }
@@ -637,6 +646,8 @@ namespace Crest
 
         private void OnEnable()
         {
+            Instances.Add(transform.GetSiblingIndex(), this);
+
             _firstUpdate = true;
 
             // Initialise with spectrum
@@ -665,6 +676,8 @@ namespace Crest
 
         void OnDisable()
         {
+            Instances.Remove(this);
+
             LodDataMgrAnimWaves.DeregisterUpdatable(this);
 
             if (_batches != null)

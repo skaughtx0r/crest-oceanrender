@@ -35,9 +35,10 @@ namespace Crest
         internal abstract void OnGUI(Rect position, SerializedProperty property, GUIContent label, DecoratedDrawer drawer);
 
         /// <summary>
-        /// Override this method to specify how tall the GUI for this field is in pixels.
+        /// A new control rectangle is required. Only override as false if the attribute needs to create it itself.
+        /// See the embedded attribute as an example.
         /// </summary>
-        internal virtual float? GetPropertyHeight(SerializedProperty property, GUIContent label) => null;
+        internal virtual bool NeedsControlRectangle => true;
 #endif
     }
 
@@ -121,7 +122,7 @@ namespace Crest
 #if UNITY_EDITOR
         static MethodInfo _powerSliderMethod;
 
-        static void PowerSlider(Rect position, SerializedProperty property, float minimum, float maximum, float power, GUIContent label)
+        static internal void PowerSlider(Rect position, SerializedProperty property, float minimum, float maximum, float power, GUIContent label)
         {
             if (_powerSliderMethod == null)
             {
