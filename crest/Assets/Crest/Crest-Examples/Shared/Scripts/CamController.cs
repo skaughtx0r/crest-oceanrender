@@ -13,6 +13,15 @@ using UnityEngine.XR;
 /// </summary>
 public class CamController : MonoBehaviour
 {
+    /// <summary>
+    /// The version of this asset. Can be used to migrate across versions. This value should
+    /// only be changed when the editor upgrades the version.
+    /// </summary>
+    [SerializeField, HideInInspector]
+#pragma warning disable 414
+    int _version = 0;
+#pragma warning restore 414
+
     public float linSpeed = 10f;
     public float rotSpeed = 70f;
 
@@ -25,6 +34,8 @@ public class CamController : MonoBehaviour
     public float _fixedDt = 1 / 60f;
 
     Transform _targetTransform;
+
+    new Camera camera;
 
     [System.Serializable]
     class DebugFields
@@ -41,6 +52,13 @@ public class CamController : MonoBehaviour
     void Awake()
     {
         _targetTransform = transform;
+
+        camera = GetComponent<Camera>();
+        if (camera == null)
+        {
+            enabled = false;
+            return;
+        }
 
 #if ENABLE_VR && ENABLE_VR_MODULE
         // We cannot change the Camera's transform when XR is enabled. This is not an issue with the new XR plugin.
@@ -105,7 +123,7 @@ public class CamController : MonoBehaviour
     {
 
 #if ENABLE_INPUT_SYSTEM
-        if(!Mouse.current.leftButton.isPressed && _requireLMBToMove) return;
+        if (!Mouse.current.leftButton.isPressed && _requireLMBToMove) return;
         float forward = (Keyboard.current.wKey.isPressed ? 1 : 0) - (Keyboard.current.sKey.isPressed ? 1 : 0);
 #else
         if (!Input.GetMouseButton(0) && _requireLMBToMove) return;
@@ -168,27 +186,28 @@ public class CamController : MonoBehaviour
 
     void UpdateDragging(float dt)
     {
-        Vector2 mousePos;
-
+        Vector2 mousePos =
 #if ENABLE_INPUT_SYSTEM
-        mousePos.x = Mouse.current.position.x.ReadValue();
-        mousePos.y = Mouse.current.position.y.ReadValue();
+            Mouse.current.position.ReadValue();
 #else
-        mousePos.x = Input.mousePosition.x;
-        mousePos.y = Input.mousePosition.y;
+            Input.mousePosition;
 #endif
 
+        var wasLeftMouseButtonPressed =
 #if ENABLE_INPUT_SYSTEM
-        if (!_dragging && Mouse.current.leftButton.isPressed && !Crest.OceanDebugGUI.OverGUI(mousePos))
+            Mouse.current.leftButton.wasPressedThisFrame;
 #else
-        if (!_dragging && Input.GetMouseButtonDown(0) && !Crest.OceanDebugGUI.OverGUI(mousePos))
+            Input.GetMouseButtonDown(0);
 #endif
+
+        if (!_dragging && wasLeftMouseButtonPressed && camera.rect.Contains(camera.ScreenToViewportPoint(mousePos)) &&
+            !Crest.OceanDebugGUI.OverGUI(mousePos))
         {
             _dragging = true;
             _lastMousePos = mousePos;
         }
 #if ENABLE_INPUT_SYSTEM
-        if (_dragging && !Mouse.current.leftButton.isPressed)
+        if (_dragging && Mouse.current.leftButton.wasReleasedThisFrame)
 #else
         if (_dragging && Input.GetMouseButtonUp(0))
 #endif

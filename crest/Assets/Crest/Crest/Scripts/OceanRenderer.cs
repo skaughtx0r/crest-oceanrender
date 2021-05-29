@@ -27,6 +27,15 @@ namespace Crest
     [HelpURL(Constants.HELP_URL_GENERAL)]
     public partial class OceanRenderer : MonoBehaviour
     {
+        /// <summary>
+        /// The version of this asset. Can be used to migrate across versions. This value should
+        /// only be changed when the editor upgrades the version.
+        /// </summary>
+        [SerializeField, HideInInspector]
+#pragma warning disable 414
+        int _version = 0;
+#pragma warning restore 414
+
         [Tooltip("Base wind speed in km/h. Controls wave conditions. Can be overridden on ShapeGerstner components."), Range(0, 150f, power: 2f)]
         public float _globalWindSpeed = 150f;
 
@@ -1201,6 +1210,18 @@ namespace Crest
                 gerstner.Validate(ocean, ValidatedHelper.DebugLog);
             }
 
+            // ShapeGerstner
+            foreach (var component in FindObjectsOfType<ShapeGerstner>())
+            {
+                component.Validate(ocean, ValidatedHelper.DebugLog);
+            }
+
+            // ShapeFFT
+            foreach (var component in FindObjectsOfType<ShapeFFT>())
+            {
+                component.Validate(ocean, ValidatedHelper.DebugLog);
+            }
+
             // UnderwaterEffect
             var underwaters = FindObjectsOfType<UnderwaterEffect>();
             foreach (var underwater in underwaters)
@@ -1269,9 +1290,10 @@ namespace Crest
             }
 
             // ShapeGerstnerBatched
-            var gerstnerBatchs = FindObjectsOfType<ShapeGerstnerBatched>();
+            var gerstnerBatches = FindObjectsOfType<ShapeGerstnerBatched>();
             var gerstners = FindObjectsOfType<ShapeGerstner>();
-            if (gerstnerBatchs.Length == 0 && gerstners.Length == 0)
+            var ffts = FindObjectsOfType<ShapeFFT>();
+            if (gerstnerBatches.Length == 0 && gerstners.Length == 0 && ffts.Length == 0)
             {
                 showMessage
                 (
