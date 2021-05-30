@@ -338,6 +338,8 @@ namespace Crest
                     pow = Mathf.Log10(pow);
                     powValues.GetArrayElementAtIndex(i).floatValue = pow;
                 }
+                // Spectrum model enum has changed so use "None" to be safe.
+                soSpectrum.FindProperty("_model").enumValueIndex = 0;
                 spVer.intValue = spVer.intValue + 1;
             }
 
@@ -356,7 +358,7 @@ namespace Crest
 
             var spSpectrumModel = serializedObject.FindProperty("_model");
             var spectraIndex = serializedObject.FindProperty("_model").enumValueIndex;
-            var spectrumModel = (OceanWaveSpectrum.SpectrumModel)Mathf.Min(spectraIndex, 1);
+            var spectrumModel = (OceanWaveSpectrum.SpectrumModel)Mathf.Clamp(spectraIndex, 0, 1);
 
             EditorGUILayout.Space();
 

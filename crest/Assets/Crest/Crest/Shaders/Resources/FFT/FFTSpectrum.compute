@@ -112,7 +112,7 @@ void SpectrumInitalize(uint3 id : SV_DispatchThreadID)
 		_ResultInit.GetDimensions( width, height, depth );
 	}
 
-	if( id.z < uint(depth - 1) && max( abs( coord.x ), abs( coord.y ) ) < _Size / 4 )
+	if ( id.z < (depth - 1) && max( abs( coord.x ), abs( coord.y ) ) < int(_Size / 4) )
 	{
 		_ResultInit[id] = 0.0;
 		return;
@@ -140,7 +140,7 @@ void SpectrumInitalize(uint3 id : SV_DispatchThreadID)
 	// Spectrum - use power values from users spectrum, but borrow wind term from PM
 	const float wavelength = PI2 / kMag;
 	const float octaveIndex = log2( wavelength ) - SPECTRUM_SMALLEST_WL_POW_2;
-	const float spectrumUV = float2((octaveIndex + 0.5) / SPECTRUM_OCTAVE_COUNT, 0.5);
+	const float2 spectrumUV = float2((octaveIndex + 0.5) / SPECTRUM_OCTAVE_COUNT, 0.5);
 	const float spectrum = _SpectrumControls.SampleLevel( linear_clamp_sampler, spectrumUV, 0.0 ) *
 		PiersonMoskowitzWindTerm( w );
 
@@ -160,7 +160,7 @@ void SpectrumInitalize(uint3 id : SV_DispatchThreadID)
 	// Amplitude
 	const float ampPos = RandGauss() * sqrt(abs(deltaSPos) * 2.0f);
 	const float ampNeg = RandGauss() * sqrt(abs(deltaSNeg) * 2.0f);
-	
+
 	// Output
 	const float phasePos = RandFloat() * PI2;
 	const float phaseNeg = RandFloat() * PI2;
@@ -192,7 +192,7 @@ void SpectrumUpdate(uint3 id : SV_DispatchThreadID)
 {
 	const int2 center = _Size.xx / 2;
 	const int2 coord = id.xy - center;
-	
+
 	// Find wave vector and number
 	const float worldSize = 0.5 * (1 << id.z);
 	const float2 k = PI2 * coord / worldSize;
