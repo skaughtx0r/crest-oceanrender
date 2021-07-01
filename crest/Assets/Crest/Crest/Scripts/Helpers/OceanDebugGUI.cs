@@ -197,6 +197,8 @@ namespace Crest
 #endif
                 y += h;
             }
+
+            GUI.Label(new Rect(x, y, w, h), $"FFT generator(s): {FFTCompute.GeneratorCount}"); y += h;
         }
 
         void DrawShapeTargets()
@@ -329,9 +331,7 @@ namespace Crest
             _guiVisible = !_guiVisible;
         }
 
-#if UNITY_2019_3_OR_NEWER
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-#endif
         static void InitStatics()
         {
             // Init here from 2019.3 onwards
