@@ -22,7 +22,7 @@ project = "Crest"
 organization = "Wave Harmonic"
 author = f"{organization} & Contributors"
 copyright = f"2021, {author}"
-version = "4.12"
+version = "4.13"
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#confval-release
 release = version
 sponsor_link = "https://github.com/sponsors/wave-harmonic"
@@ -235,7 +235,8 @@ rst_prolog = rst_prolog + """
 
 .. set:: TAA :abbr:`TAA (Temporal Anti-Aliasing)`
 .. set:: SMAA :abbr:`SMAA (Subpixel Morphological Anti-Aliasing)`
-.. set:: SPI :abbr:`SPI (Single Pass Instanced)`
+.. set:: SPI :abbr:`SPI (Single-Pass Instanced)`
+.. set:: MP :abbr:`MP (Multi-Pass)`
 .. set:: FFT :abbr:`FFT (Fast Fourier Transform)`
 .. set:: GC :abbr:`GC (Garbage Collector)`
 
